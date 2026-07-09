@@ -595,7 +595,7 @@ Founder
   // for pages Claude itself hosts. Instead this calls a small proxy server
   // that holds a real Anthropic API key as a secret. See
   // scan-card-proxy/README.md for how to deploy it.
-  const SCAN_PROXY_URL = 'https://scan-card-proxy.vercel.app/api/scan-card';
+  const SCAN_PROXY_URL = 'https://scan-card-proxy-v2.vercel.app/api/scan-card';
 
   async function scanBusinessCard(base64Image){
     const response = await fetch(SCAN_PROXY_URL, {
