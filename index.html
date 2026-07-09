@@ -590,41 +590,24 @@ Founder
     });
   }
 
-  const CARD_SCAN_SYSTEM_PROMPT = [
-    'You read business card photos and extract contact details.',
-    'Respond with ONLY a raw JSON object — no markdown, no code fences, no commentary before or after it.',
-    'Use exactly this shape, with every value a string (use "" for anything not printed on the card):',
-    '{"company":"","firstName":"","lastName":"","title":"","address":"","personalPhone":"","locationPhone":"","email":"","website":"","instagram":"","facebook":"","linkedin":"","youtube":"","xtwitter":""}',
-    'Rules:',
-    '- personalPhone is the direct/mobile/cell number if the card distinguishes one; otherwise the main number.',
-    '- locationPhone is a separate office/main line only if the card lists a second distinct phone number.',
-    '- address is the full mailing address as one line: street, city, state, zip.',
-    '- Only fill a social field if that platform is explicitly printed on the card (a handle like @name is fine — turn it into a full profile URL). Leave it "" otherwise.',
-    '- Never invent or guess a value that is not visibly printed on the card.'
-  ].join('\n');
+  // This page is self-hosted (not running inside claude.ai), so the free
+  // built-in "no API key needed" access doesn't apply here — it only works
+  // for pages Claude itself hosts. Instead this calls a small proxy server
+  // that holds a real Anthropic API key as a secret. See
+  // scan-card-proxy/README.md for how to deploy it.
+  const SCAN_PROXY_URL = 'https://api-edgar16.vercel.app/api/scan-card';
 
   async function scanBusinessCard(base64Image){
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch(SCAN_PROXY_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1000,
-        system: CARD_SCAN_SYSTEM_PROMPT,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64Image } },
-            { type: 'text', text: 'Extract the contact information from this business card.' }
-          ]
-        }]
-      })
+      body: JSON.stringify({ image: base64Image })
     });
-    if (!response.ok) throw new Error('API request failed');
     const data = await response.json();
-    const textBlocks = (data.content || []).filter(function(b){ return b.type === 'text'; }).map(function(b){ return b.text; }).join('\n');
-    const cleaned = textBlocks.replace(/```json/gi, '').replace(/```/g, '').trim();
-    return JSON.parse(cleaned);
+    if (!response.ok){
+      throw new Error((data && (data.error + (data.detail ? ': ' + data.detail : ''))) || 'Proxy request failed');
+    }
+    return data;
   }
 
   cardPhotoInput.addEventListener('change', async function(){
@@ -670,7 +653,13 @@ Founder
       showCard();
     } catch (err){
       errorMsg.hidden = false;
-      errorMsg.textContent = "Couldn't read that photo clearly — try again with better light and the card flat, or paste the CRM text instead.";
+      const onClaudeHost = /(^|\.)claude\.ai$|claudeusercontent\.com$/.test(window.location.hostname);
+      const rawMsg = (err && err.message) ? err.message : String(err);
+      if (!onClaudeHost){
+        errorMsg.textContent = 'Photo scan is calling the scan-card-proxy. If SCAN_PROXY_URL still says REPLACE-ME, or the Vercel deploy/API key isn\'t set up yet, that\'s why this fails — see scan-card-proxy/README.md. [' + rawMsg + ']';
+      } else {
+        errorMsg.textContent = "Couldn't read that photo clearly — try again with better light and the card flat, or paste the CRM text instead. [" + rawMsg + ']';
+      }
     } finally {
       scanBtn.disabled = false;
       parseBtn.disabled = false;
