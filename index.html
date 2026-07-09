@@ -142,6 +142,45 @@
   .scan-btn:active{transform:translateY(1px);}
   .scan-btn:disabled{opacity:.5;cursor:default;}
 
+  .card-photo-slots{
+    display:flex;gap:12px;margin-bottom:12px;
+  }
+  .photo-slot{
+    position:relative;
+    flex:1;
+    aspect-ratio:1.55/1;
+    border:1.5px dashed var(--line);
+    border-radius:14px;
+    background:var(--cream);
+    cursor:pointer;
+    overflow:hidden;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .photo-slot.filled{border-style:solid;border-color:var(--line);}
+  .photo-slot-empty{
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    color:var(--ink-faint);
+  }
+  .photo-slot-plus{font-size:22px;font-weight:700;line-height:1;color:var(--orange);}
+  .photo-slot-label{
+    font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+    display:flex;flex-direction:column;align-items:center;gap:2px;
+  }
+  .optional-tag{
+    font-size:9px;font-weight:600;color:var(--ink-faint);
+    text-transform:none;letter-spacing:0;
+  }
+  .photo-slot-preview{
+    width:100%;height:100%;object-fit:cover;display:block;
+  }
+  .photo-slot-remove{
+    position:absolute;top:6px;right:6px;
+    width:22px;height:22px;border-radius:50%;
+    background:var(--ink);color:var(--white);
+    border:none;font-size:14px;line-height:1;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+  }
+
   .scan-status{
     display:flex;align-items:center;justify-content:center;gap:10px;
     margin-top:12px;
@@ -341,9 +380,29 @@ Founder
 
     <div class="or-divider">or</div>
 
-    <input type="file" id="cardPhotoInput" accept="image/*" hidden>
-    <button class="scan-btn" id="scanBtn" type="button">📷 Scan a business card</button>
-    <p class="hint">Take a photo or choose one from your library — reads the name, title, company, phone, email, address and social links off the card. Nothing on the card gets saved anywhere except onto this card.</p>
+    <div class="group-label" style="margin-bottom:8px;">Scan a business card</div>
+    <div class="card-photo-slots">
+      <div class="photo-slot" id="frontSlot">
+        <input type="file" accept="image/*" id="frontPhotoInput" hidden>
+        <div class="photo-slot-empty">
+          <span class="photo-slot-plus">+</span>
+          <span class="photo-slot-label">Front</span>
+        </div>
+        <img class="photo-slot-preview" hidden alt="Front of card">
+        <button class="photo-slot-remove" type="button" hidden aria-label="Remove front photo">×</button>
+      </div>
+      <div class="photo-slot" id="backSlot">
+        <input type="file" accept="image/*" id="backPhotoInput" hidden>
+        <div class="photo-slot-empty">
+          <span class="photo-slot-plus">+</span>
+          <span class="photo-slot-label">Back<span class="optional-tag">optional</span></span>
+        </div>
+        <img class="photo-slot-preview" hidden alt="Back of card">
+        <button class="photo-slot-remove" type="button" hidden aria-label="Remove back photo">×</button>
+      </div>
+    </div>
+    <button class="scan-btn" id="scanBtn" type="button" disabled>📷 Scan card</button>
+    <p class="hint">Add a photo of one or both sides — works fine with just one. With both, it combines details that are split across the front and back (like a company name up front and an address on the back). Nothing gets saved anywhere except onto this card.</p>
     <div class="scan-status" id="scanStatus" hidden><span class="spinner"></span><span id="scanStatusText">Reading the card…</span></div>
   </section>
 
@@ -623,15 +682,66 @@ Founder
     rawInput.focus();
   });
 
-  // ---- Business card photo scan ----
+  // ---- Business card photo scan (front + optional back) ----
   const scanBtn = document.getElementById('scanBtn');
-  const cardPhotoInput = document.getElementById('cardPhotoInput');
   const scanStatus = document.getElementById('scanStatus');
   const scanStatusText = document.getElementById('scanStatusText');
 
-  scanBtn.addEventListener('click', function(){
-    cardPhotoInput.click();
-  });
+  const slotState = {
+    front: { input: document.getElementById('frontPhotoInput'), base64: null },
+    back: { input: document.getElementById('backPhotoInput'), base64: null }
+  };
+
+  function setupSlot(side){
+    const slotEl = document.getElementById(side + 'Slot');
+    const emptyEl = slotEl.querySelector('.photo-slot-empty');
+    const previewEl = slotEl.querySelector('.photo-slot-preview');
+    const removeBtn = slotEl.querySelector('.photo-slot-remove');
+    const input = slotState[side].input;
+
+    function updateScanBtnEnabled(){
+      scanBtn.disabled = !(slotState.front.base64 || slotState.back.base64);
+    }
+
+    slotEl.addEventListener('click', function(e){
+      if (e.target === removeBtn) return;
+      input.click();
+    });
+
+    input.addEventListener('change', async function(){
+      const file = input.files && input.files[0];
+      if (!file) return;
+      errorMsg.hidden = true;
+      try {
+        const base64 = await resizeImageToBase64(file, 1600, 0.85);
+        slotState[side].base64 = base64;
+        previewEl.src = 'data:image/jpeg;base64,' + base64;
+        previewEl.hidden = false;
+        emptyEl.hidden = true;
+        removeBtn.hidden = false;
+        slotEl.classList.add('filled');
+        updateScanBtnEnabled();
+      } catch (err){
+        errorMsg.hidden = false;
+        errorMsg.textContent = "Couldn't read that photo — try a different one.";
+      } finally {
+        input.value = '';
+      }
+    });
+
+    removeBtn.addEventListener('click', function(e){
+      e.stopPropagation();
+      slotState[side].base64 = null;
+      previewEl.hidden = true;
+      previewEl.src = '';
+      emptyEl.hidden = false;
+      removeBtn.hidden = true;
+      slotEl.classList.remove('filled');
+      updateScanBtnEnabled();
+    });
+  }
+  setupSlot('front');
+  setupSlot('back');
 
   function resizeImageToBase64(file, maxDim, quality){
     return new Promise(function(resolve, reject){
@@ -667,11 +777,11 @@ Founder
   // Must match APP_SHARED_KEY set in the proxy's Vercel environment variables.
   const APP_SHARED_KEY = '4GMJ45F8AJudK0lXio_HsaB7';
 
-  async function scanBusinessCard(base64Image){
+  async function scanBusinessCard(base64Images){
     const response = await fetch(SCAN_PROXY_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-App-Key': APP_SHARED_KEY },
-      body: JSON.stringify({ image: base64Image })
+      body: JSON.stringify({ images: base64Images })
     });
     const data = await response.json();
     if (!response.ok){
@@ -680,19 +790,18 @@ Founder
     return data;
   }
 
-  cardPhotoInput.addEventListener('change', async function(){
-    const file = cardPhotoInput.files && cardPhotoInput.files[0];
-    if (!file) return;
+  scanBtn.addEventListener('click', async function(){
+    const images = [slotState.front.base64, slotState.back.base64].filter(Boolean);
+    if (images.length === 0) return;
 
     errorMsg.hidden = true;
     scanBtn.disabled = true;
     parseBtn.disabled = true;
     scanStatus.hidden = false;
-    scanStatusText.textContent = 'Reading the card…';
+    scanStatusText.textContent = images.length > 1 ? 'Reading both sides…' : 'Reading the card…';
 
     try {
-      const base64 = await resizeImageToBase64(file, 1600, 0.85);
-      const extracted = await scanBusinessCard(base64);
+      const extracted = await scanBusinessCard(images);
 
       const normalized = {
         company: extracted.company || '',
@@ -731,10 +840,9 @@ Founder
         errorMsg.textContent = "Couldn't read that photo clearly — try again with better light and the card flat, or paste the CRM text instead. [" + rawMsg + ']';
       }
     } finally {
-      scanBtn.disabled = false;
+      scanBtn.disabled = !(slotState.front.base64 || slotState.back.base64);
       parseBtn.disabled = false;
       scanStatus.hidden = true;
-      cardPhotoInput.value = '';
     }
   });
 
