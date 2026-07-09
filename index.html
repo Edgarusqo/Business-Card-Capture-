@@ -341,9 +341,9 @@ Founder
 
     <div class="or-divider">or</div>
 
-    <input type="file" id="cardPhotoInput" accept="image/*" capture="environment" hidden>
+    <input type="file" id="cardPhotoInput" accept="image/*" hidden>
     <button class="scan-btn" id="scanBtn" type="button">📷 Scan a business card</button>
-    <p class="hint">Takes a photo, reads the name, title, company, phone, email, address and social links off the card. Nothing on the card gets saved anywhere except onto this card.</p>
+    <p class="hint">Take a photo or choose one from your library — reads the name, title, company, phone, email, address and social links off the card. Nothing on the card gets saved anywhere except onto this card.</p>
     <div class="scan-status" id="scanStatus" hidden><span class="spinner"></span><span id="scanStatusText">Reading the card…</span></div>
   </section>
 
@@ -427,12 +427,12 @@ Founder
   var gateError = document.getElementById('gateError');
 
   function unlock(){
-    sessionStorage.setItem('cp_unlocked', '1');
+    localStorage.setItem('cp_unlocked', '1');
     gateOverlay.hidden = true;
     mainPage.hidden = false;
   }
 
-  if (sessionStorage.getItem('cp_unlocked') === '1'){
+  if (localStorage.getItem('cp_unlocked') === '1'){
     unlock();
   }
 
