@@ -887,7 +887,6 @@ Founder
     }
 
     if (c.email) lines.push('EMAIL;TYPE=INTERNET,WORK:'+escapeVCF(c.email));
-    if (c.website) lines.push('URL;TYPE=WORK:'+escapeVCF(c.website));
 
     function addItemUrl(value, label){
       if (!value) return;
@@ -895,6 +894,7 @@ Founder
       lines.push('item'+itemN+'.X-ABLabel:'+escapeVCF(label));
       itemN++;
     }
+    addItemUrl(c.website, 'Website');
     addItemUrl(c.googleMaps, 'Google Maps');
     addItemUrl(c.instagram, 'Instagram');
     addItemUrl(c.facebook, 'Facebook');
