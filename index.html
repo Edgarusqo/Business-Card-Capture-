@@ -666,6 +666,7 @@ Founder
       contactXTwitter: cleanUrlField(fields['Contact X']),
     };
     populateCardFields(normalized);
+    cardZone.dataset.locationPhoneSource = 'paste';
 
     const anyPlaceholder = ['Website','Google Maps','Instagram','Facebook','LinkedIn','YouTube','X/Twitter','Contact Instagram','Contact Linkedin','Contact Facebook']
       .some(k => isPlaceholderLink(fields[k]));
@@ -828,6 +829,7 @@ Founder
       };
 
       populateCardFields(normalized);
+      cardZone.dataset.locationPhoneSource = 'scan';
       linkNotice.hidden = true;
       showCard();
     } catch (err){
@@ -880,7 +882,21 @@ Founder
       lines.push('item'+itemN+'.X-ABLabel:'+escapeVCF(label));
       itemN++;
     }
-    addItemTel(c.locationPhone, 'Business Line');
+    if (c.locationPhone){
+      if (c.locationPhoneSource === 'scan'){
+        // A business card just printing an unlabeled "Phone" is almost
+        // always the general office line — show it as the plain,
+        // standard "work" type rather than a custom label.
+        lines.push('TEL;TYPE=WORK,VOICE:'+escapeVCF(c.locationPhone));
+      } else {
+        // From CRM text: "Location Phone" is a specific field name in
+        // Edgar's CRM meaning the phone of this particular
+        // restaurant/cafe location, worth keeping as its own label.
+        lines.push('item'+itemN+'.TEL:'+escapeVCF(c.locationPhone));
+        lines.push('item'+itemN+'.X-ABLabel:Location Phone');
+        itemN++;
+      }
+    }
     addItemTel(c.companyPhone, 'Company Phone');
     if (c.contactPhones){
       c.contactPhones.split(',').map(s=>s.trim()).filter(Boolean).forEach(p => addItemTel(p, 'Other Phone'));
@@ -947,6 +963,7 @@ Founder
         contactLinkedin: getVal('f_contactLinkedin'),
         contactFacebook: getVal('f_contactFacebook'),
         contactXTwitter: getVal('f_contactXTwitter'),
+        locationPhoneSource: cardZone.dataset.locationPhoneSource || 'paste',
       };
 
       if (!contact.company && !contact.firstName && !contact.lastName){
