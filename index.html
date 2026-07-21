@@ -982,11 +982,29 @@ Founder
       fallbackLink.href = dataUri;
       fallbackLink.hidden = false;
 
-      // Try the native iOS/Android share sheet first — sharing an actual
-      // File object is the most reliable cross-context method. From the
-      // share sheet, "Save to Files", AirDrop-to-self, or Messages/Mail to
-      // yourself all work; opening the resulting .vcf from any of those
-      // triggers the native Add-to-Contacts screen.
+      // On iOS, navigating directly to a vCard data: URI makes Mobile
+      // Safari show the native "Add to Contacts" preview immediately —
+      // no extra share sheet or file download step needed. Try this first.
+      try {
+        if (isIOS()){
+          const a = document.createElement('a');
+          a.href = dataUri;
+          a.rel = 'noopener';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          showToast('Punched: ' + displayName + ' — tap Add to Contacts if it appeared, or use the link below.');
+          return;
+        }
+      } catch (directErr){
+        // fall through to the share sheet / download below
+      }
+
+      // Fallback: the native share sheet — sharing an actual File object
+      // works in more contexts than a plain link. From the share sheet,
+      // "Save to Files", AirDrop-to-self, or Messages/Mail to yourself all
+      // work; opening the resulting .vcf from any of those triggers the
+      // native Add-to-Contacts screen.
       try {
         if (navigator.canShare && navigator.share){
           const file = new File([vcf], filename, { type: 'text/vcard' });
@@ -1001,26 +1019,16 @@ Founder
       }
 
       try {
-        if (isIOS()){
-          const a = document.createElement('a');
-          a.href = dataUri;
-          a.rel = 'noopener';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          showToast('Punched: ' + displayName + ' — tap Add to Contacts if it appeared, or use the link below.');
-        } else {
-          const blob = new Blob([vcf], { type: 'text/vcard' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = filename;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(()=>URL.revokeObjectURL(url), 30000);
-          showToast('Punched: ' + displayName + ' — check your downloads, or use the link below.');
-        }
+        const blob = new Blob([vcf], { type: 'text/vcard' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(()=>URL.revokeObjectURL(url), 30000);
+        showToast('Punched: ' + displayName + ' — check your downloads, or use the link below.');
       } catch (navErr){
         showToast('Punched: ' + displayName + ' — tap the link below to add the contact.');
       }
