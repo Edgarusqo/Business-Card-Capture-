@@ -460,6 +460,9 @@ Founder
     <div class="card-actions">
       <button class="stamp-btn" id="saveBtn">SAVE CONTACT</button>
       <a href="#" id="fallbackLink" class="fallback-link" hidden>Didn't open? Tap here to add the contact</a>
+      <form id="vcardForm" method="POST" action="" style="display:none">
+        <input type="hidden" name="vcf" id="vcardFormInput">
+      </form>
       <p class="hint" style="margin-top:14px;">On iPhone: this opens the share sheet — pick "Save to Files" or send it to yourself (Messages/Mail/AirDrop), then open that file to get the Add Contact screen.</p>
     </div>
     <button class="reset-btn" id="resetBtn">↺ Start over with a new paste</button>
@@ -775,6 +778,7 @@ Founder
   // that holds a real Anthropic API key as a secret. See
   // scan-card-proxy/README.md for how to deploy it.
   const SCAN_PROXY_URL = 'https://scan-card-proxy.vercel.app/api/scan-card';
+  const VCARD_ENDPOINT_URL = 'https://scan-card-proxy.vercel.app/api/vcard';
   // Must match APP_SHARED_KEY set in the proxy's Vercel environment variables.
   const APP_SHARED_KEY = '4GMJ45F8AJudK0lXio_HsaB7';
 
@@ -982,17 +986,19 @@ Founder
       fallbackLink.href = dataUri;
       fallbackLink.hidden = false;
 
-      // On iOS, navigating directly to a vCard data: URI makes Mobile
-      // Safari show the native "Add to Contacts" preview immediately —
-      // no extra share sheet or file download step needed. Try this first.
+      // Submitting a hidden form (a real POST navigation) to our own
+      // server, which responds with a genuine Content-Type: text/vcard
+      // header — that real HTTP response is what makes Mobile Safari show
+      // the native "Add to Contacts" preview immediately. Client-side-only
+      // tricks (data: URIs) turned out not to reliably trigger this on
+      // current iOS versions, so this replaces that approach.
       try {
         if (isIOS()){
-          const a = document.createElement('a');
-          a.href = dataUri;
-          a.rel = 'noopener';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
+          const vcardForm = document.getElementById('vcardForm');
+          const vcardFormInput = document.getElementById('vcardFormInput');
+          vcardForm.action = VCARD_ENDPOINT_URL;
+          vcardFormInput.value = vcf;
+          vcardForm.submit();
           showToast('Punched: ' + displayName + ' — tap Add to Contacts if it appeared, or use the link below.');
           return;
         }
